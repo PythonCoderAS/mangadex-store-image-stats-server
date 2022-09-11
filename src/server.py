@@ -1,5 +1,5 @@
 from datetime import datetime
-from typing import Dict
+from typing import Dict, List
 from uuid import UUID
 from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel, conint
@@ -37,7 +37,7 @@ class StatsChapter(BaseModel):
 
 class StatsOutput(BaseModel):
     manga_id: UUID
-    chapters: Dict[float, StatsChapter]
+    chapters: Dict[float, List[StatsChapter]]
 
 
 class AllStats(BaseModel):
@@ -74,8 +74,15 @@ async def get_stats(manga_id: UUID):
         raise HTTPException(status_code=404, detail="Manga not found.")
     chapters = {}
     for entry in entries:
-        chapters[entry.chapter_num] = StatsChapter(
-            id=entry.id, pages=entry.pages, bytes=entry.bytes, read_on=entry.created_on
+        if entry.chapter_num not in chapters:
+            chapters[entry.chapter_num] = []
+        chapters[entry.chapter_num].append(
+            StatsChapter(
+                id=entry.id,
+                pages=entry.pages,
+                bytes=entry.bytes,
+                read_on=entry.created_on,
+            )
         )
     return StatsOutput(manga_id=manga_id, chapters=chapters)
 
@@ -89,7 +96,14 @@ async def get_all_stats():
             stats[entry.manga_uuid] = StatsOutput(
                 manga_id=entry.manga_uuid, chapters={}
             )
-        stats[entry.manga_uuid].chapters[entry.chapter_num] = StatsChapter(
-            id=entry.id, pages=entry.pages, bytes=entry.bytes, read_on=entry.created_on
+        if entry.chapter_num not in stats[entry.manga_uuid].chapters:
+            stats[entry.manga_uuid].chapters[entry.chapter_num] = []
+        stats[entry.manga_uuid].chapters[entry.chapter_num].append(
+            StatsChapter(
+                id=entry.id,
+                pages=entry.pages,
+                bytes=entry.bytes,
+                read_on=entry.created_on,
+            )
         )
     return AllStats(stats=stats)
